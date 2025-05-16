@@ -1,7 +1,7 @@
 # dispatcher (WIP)
 This application takes the locations of orders and dispatches them to drivers in the order they should be delivered.
 
-This algorithm uses [KMeans](https://en.wikipedia.org/wiki/K-means_clustering) to cluster the orders and [Euclidean Distance](https://en.wikipedia.org/wiki/Euclidean_distance) sort them. This is a work in progess, more improvements to come soon!
+This algorithm uses [KMeans](https://en.wikipedia.org/wiki/K-means_clustering) to cluster the orders and [Euclidean Distance](https://en.wikipedia.org/wiki/Euclidean_distance) to sort them. This is a work in progess, more improvements to come soon!
 
 # todo
 - I want to incorporate the Google Maps API to determine coordinates of any given address.
