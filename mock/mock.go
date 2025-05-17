@@ -1,4 +1,4 @@
-package main
+package mock
 
 import (
 	"github.com/muesli/clusters"

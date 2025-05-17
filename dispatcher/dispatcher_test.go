@@ -1,9 +1,10 @@
-package main
+package dispatcher
 
 import (
 	"errors"
 	"testing"
 
+	KMeansMock "github.com/lalsaady/dispatcher/mock"
 	"github.com/muesli/clusters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -45,7 +46,7 @@ func TestDispatcherError(t *testing.T) {
 	}
 	drivers := []string{"Alice", "Bob"}
 
-	mockKM := NewMockKMeans()
+	mockKM := KMeansMock.NewMockKMeans()
 	mockKM.On("Partition", mock.Anything, mock.Anything).Return(clusters.Clusters{}, errors.New("mock error"))
 
 	dispatcher := NewDispatcher(mockKM)
