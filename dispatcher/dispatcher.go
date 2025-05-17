@@ -1,4 +1,4 @@
-package main
+package dispatcher
 
 import (
 	"errors"
@@ -121,16 +121,4 @@ func (d *Dispatcher) AssignRoutes(orders []Location, drivers []string) (map[stri
 
 	fmt.Printf("Driver routes: %v\n", driverRoutes)
 	return driverRoutes, nil
-}
-
-func main() {
-	dispatcher := NewDispatcher(nil)
-	orders := []Location{
-		{ID: 1, Address: "123 Main St, Cleveland, OH", Lat: 41.498612, Lon: -81.694471},
-		{ID: 2, Address: "456 Dummy Ave, Cleveland, OH", Lat: 41.478727, Lon: -81.738038},
-		{ID: 3, Address: "789 Random Rd, Cleveland, OH", Lat: 41.506967, Lon: -81.599513},
-		{ID: 4, Address: "1010 Idk St, Cleveland, OH", Lat: 41.477112, Lon: -81.649591},
-	}
-	drivers := []string{"Alice", "Bob"}
-	dispatcher.AssignRoutes(orders, drivers)
 }
