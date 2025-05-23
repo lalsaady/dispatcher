@@ -3,122 +3,87 @@ package dispatcher
 import (
 	"errors"
 	"fmt"
-	"sort"
 
-	"github.com/muesli/clusters"
-	"github.com/muesli/kmeans"
+	"github.com/lalsaady/dispatcher/client"
+	"github.com/lalsaady/dispatcher/model"
 )
 
-type KMeans interface {
-	Partition(observations clusters.Observations, k int) (clusters.Clusters, error)
-}
-
 type Dispatcher struct {
-	kmeans KMeans
+	kmeans   client.KMeansClient
+	geocoder client.GeocoderClient
 }
 
-func NewDispatcher(km KMeans) *Dispatcher {
+func NewDispatcher(km client.KMeansClient, g client.GeocoderClient) (*Dispatcher, error) {
 	if km == nil {
-		km = kmeans.New()
+		return nil, errors.New("kmeans client is required")
 	}
-	return &Dispatcher{kmeans: km}
+	if g == nil {
+		return nil, errors.New("geocoder client is required")
+	}
+	return &Dispatcher{
+		kmeans:   km,
+		geocoder: g,
+	}, nil
 }
 
-// Location represents a delivery location
-type Location struct {
-	ID      int
-	Address string
-	Lat     float64
-	Lon     float64
-}
-
-// OrderObservation links an Order ID with coordinates
-type OrderObservation struct {
-	ID     int
-	coords clusters.Coordinates
-}
-
-func (o OrderObservation) Coordinates() clusters.Coordinates {
-	return o.coords
-}
-
-func (o OrderObservation) Distance(c clusters.Coordinates) float64 {
-	return o.coords.Distance(c)
-}
-
-var hub = Location{
-	Address: "2800 Euclid Ave, Cleveland, OH",
-	Lat:     41.502069,
-	Lon:     -81.669011,
-}
-
-func distance(lat2, lon2 float64) float64 {
-	return (hub.Lat-lat2)*(hub.Lat-lat2) + (hub.Lon-lon2)*(hub.Lon-lon2)
-}
-
-func (d *Dispatcher) AssignRoutes(orders []Location, drivers []string) (map[string][]Location, error) {
-	if len(orders) == 0 {
-		return nil, errors.New("no orders provided")
+func (d *Dispatcher) AssignRoutes(addresses []string, drivers []string) (map[string][]model.Location, error) {
+	if len(addresses) == 0 {
+		return nil, errors.New("no addresses provided")
 	}
 	if len(drivers) == 0 {
 		return nil, errors.New("no drivers provided")
 	}
 
-	var observations clusters.Observations
-	idToIndex := make(map[int]int)
-
-	// Prepare observations with order IDs
-	for i, order := range orders {
-		ob := OrderObservation{
-			ID:     order.ID,
-			coords: clusters.Coordinates{order.Lat, order.Lon},
+	// Get coordinates for all orders first
+	ordersWithCoords := make([]model.Location, len(addresses))
+	for i, address := range addresses {
+		coords, err := d.geocoder.GetCoords(address)
+		if err != nil {
+			return nil, fmt.Errorf("error getting coords from google maps api: %v", err)
 		}
-		observations = append(observations, ob)
-		idToIndex[order.ID] = i
+		ordersWithCoords[i] = model.Location{
+			ID:      i + 1,
+			Address: address,
+			Lat:     coords.Lat,
+			Lon:     coords.Lon,
+		}
 	}
 
 	// If there are too many orders, increase the ordersPerDriver
 	ordersPerDriver := 2
-	totalOrders := len(orders)
-	minOrdersPerDriver := totalOrders / len(drivers)
+	minOrdersPerDriver := len(addresses) / len(drivers)
 	if minOrdersPerDriver > ordersPerDriver {
 		ordersPerDriver = minOrdersPerDriver
 	}
 
-	// Perform k-means clustering
-	clustered, err := d.kmeans.Partition(observations, ordersPerDriver)
+	// Partition orders into clusters
+	clusters, err := d.kmeans.Partition(ordersWithCoords, ordersPerDriver)
 	if err != nil {
-		return nil, errors.New("error executing k-means algorithm")
+		return nil, fmt.Errorf("error executing k-means algorithm: %v", err)
 	}
 
-	// Assign drivers and order deliveries by distance from hub
-	driverRoutes := make(map[string][]Location)
-	for i, cluster := range clustered {
+	// Assign drivers to clusters
+	driverRoutes := make(map[string][]model.Location)
+	for i, cluster := range clusters {
 		driver := drivers[i]
-		locations := make([]Location, len(cluster.Observations))
+		locations := make([]model.Location, len(cluster.Observations))
 
 		// Get locations for this cluster
 		for j, obs := range cluster.Observations {
-			orderObs := obs.(OrderObservation)
-			idx := idToIndex[orderObs.ID]
-			locations[j] = orders[idx]
-		}
-
-		// Sort locations by distance from hub
-		sort.Slice(locations, func(i, j int) bool {
-			distI := distance(locations[i].Lat, locations[i].Lon)
-			distJ := distance(locations[j].Lat, locations[j].Lon)
-			return distI < distJ
-		})
-
-		// Limit to ordersPerDriver unless we have too many orders
-		if len(locations) > ordersPerDriver {
-			locations = locations[:ordersPerDriver]
+			orderObs, ok := obs.(client.Observer)
+			if !ok {
+				return nil, fmt.Errorf("error getting locations from k-means algorithm")
+			}
+			for _, order := range ordersWithCoords {
+				if order.ID == orderObs.GetID() {
+					locations[j] = order
+					break
+				}
+			}
 		}
 
 		driverRoutes[driver] = locations
 	}
 
-	fmt.Printf("Driver routes: %v\n", driverRoutes)
 	return driverRoutes, nil
 }
