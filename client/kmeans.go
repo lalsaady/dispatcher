@@ -8,16 +8,9 @@ import (
 	"github.com/muesli/kmeans"
 )
 
-// Hub
-var hub = model.Location{
-	Address: "2800 Euclid Ave, Cleveland, OH",
-	Lat:     41.502069,
-	Lon:     -81.669011,
-}
-
 // KMeansClient defines the interface for kmeans clustering
 type KMeansClient interface {
-	Partition(orders []model.Location, numClusters int) (clusters.Clusters, error)
+	Partition(orders []model.Location, numClusters int, hub model.Location) (clusters.Clusters, error)
 }
 
 type KMeans struct{}
@@ -59,7 +52,7 @@ func NewObservation(id int, lat, lon float64) Observation {
 }
 
 // Partition groups orders into clusters using k-means clustering
-func (k *KMeans) Partition(orders []model.Location, numClusters int) (clusters.Clusters, error) {
+func (k *KMeans) Partition(orders []model.Location, numClusters int, hub model.Location) (clusters.Clusters, error) {
 	var observations clusters.Observations
 
 	// Prepare observations with order IDs
@@ -77,25 +70,25 @@ func (k *KMeans) Partition(orders []model.Location, numClusters int) (clusters.C
 
 	// Sort each cluster by distance from hub
 	for _, cluster := range clusters {
-		sortClusterByDistance(cluster)
+		sortClusterByDistance(cluster, hub)
 	}
 
 	return clusters, nil
 }
 
 // Helper functions
-func sortClusterByDistance(cluster clusters.Cluster) {
+func sortClusterByDistance(cluster clusters.Cluster, hub model.Location) {
 	sort.Slice(cluster.Observations, func(i, j int) bool {
 		obsI := cluster.Observations[i].(Observation)
 		obsJ := cluster.Observations[j].(Observation)
 		coordsI := obsI.Coordinates()
 		coordsJ := obsJ.Coordinates()
-		distI := euclideanDistance(coordsI[0], coordsI[1])
-		distJ := euclideanDistance(coordsJ[0], coordsJ[1])
+		distI := euclideanDistance(coordsI[0], coordsI[1], hub)
+		distJ := euclideanDistance(coordsJ[0], coordsJ[1], hub)
 		return distI < distJ
 	})
 }
 
-func euclideanDistance(lat2, lon2 float64) float64 {
+func euclideanDistance(lat2, lon2 float64, hub model.Location) float64 {
 	return (hub.Lat-lat2)*(hub.Lat-lat2) + (hub.Lon-lon2)*(hub.Lon-lon2)
 }

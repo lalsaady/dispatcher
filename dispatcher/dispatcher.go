@@ -11,18 +11,23 @@ import (
 type Dispatcher struct {
 	kmeans   client.KMeansClient
 	geocoder client.GeocoderClient
+	hub      model.Location
 }
 
-func NewDispatcher(km client.KMeansClient, g client.GeocoderClient) (*Dispatcher, error) {
+func NewDispatcher(km client.KMeansClient, g client.GeocoderClient, hub model.Location) (*Dispatcher, error) {
 	if km == nil {
 		return nil, errors.New("kmeans client is required")
 	}
 	if g == nil {
 		return nil, errors.New("geocoder client is required")
 	}
+	if hub.Address == "" || hub.Lat == 0 || hub.Lon == 0 {
+		return nil, errors.New("hub address and coords are required")
+	}
 	return &Dispatcher{
 		kmeans:   km,
 		geocoder: g,
+		hub:      hub,
 	}, nil
 }
 
@@ -57,7 +62,7 @@ func (d *Dispatcher) AssignRoutes(addresses []string, drivers []string) (map[str
 	}
 
 	// Partition orders into clusters
-	clusters, err := d.kmeans.Partition(ordersWithCoords, ordersPerDriver)
+	clusters, err := d.kmeans.Partition(ordersWithCoords, ordersPerDriver, d.hub)
 	if err != nil {
 		return nil, fmt.Errorf("error executing k-means algorithm: %v", err)
 	}
