@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lalsaady/dispatcher/client"
 	"github.com/lalsaady/dispatcher/dispatcher"
 	"github.com/spf13/cobra"
 )
@@ -62,22 +63,20 @@ func parseOrder(orderStr string) (Order, error) {
 
 func runDispatch(cmd *cobra.Command, args []string) error {
 	// Parse all orders
-	locations := make([]dispatcher.Location, len(orders))
+	addresses := make([]string, len(orders))
 	for i, orderStr := range orders {
 		order, err := parseOrder(orderStr)
 		if err != nil {
 			return fmt.Errorf("error parsing order %d: %w", i+1, err)
 		}
-		locations[i] = dispatcher.Location{
-			ID:      i + 1,
-			Address: order.Address,
-			Lat:     order.Lat,
-			Lon:     order.Lon,
-		}
+		addresses[i] = order.Address
 	}
 
-	d := dispatcher.NewDispatcher(nil)
-	routes, err := d.AssignRoutes(locations, drivers)
+	d, err := dispatcher.NewDispatcher(client.NewKMeansClient(), client.NewGeocoderClient())
+	if err != nil {
+		return fmt.Errorf("error creating dispatcher: %w", err)
+	}
+	routes, err := d.AssignRoutes(addresses, drivers)
 	if err != nil {
 		return fmt.Errorf("error assigning routes: %w", err)
 	}
