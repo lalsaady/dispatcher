@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/lalsaady/dispatcher/model"
 )
@@ -21,12 +22,17 @@ func NewGeocoderClient() GeocoderClient {
 }
 
 func (g *Geocoder) GetCoords(address string) (model.Points, error) {
-	// URL encode the address
-	encodedAddress := url.QueryEscape(address)
+	// Get API key from env
+	apiKey := os.Getenv("GOOGLE_MAPS_API_KEY")
+	if apiKey == "" {
+		return model.Points{}, fmt.Errorf("GOOGLE_MAPS_API_KEY environment variable not set")
+	}
 
+	// Create URL
+	encodedAddress := url.QueryEscape(address)
 	url := fmt.Sprintf("https://maps.googleapis.com/maps/api/geocode/json?address=%s&key=%s",
 		encodedAddress,
-		"key")
+		apiKey)
 
 	resp, err := http.Get(url)
 	if err != nil {
