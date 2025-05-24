@@ -31,13 +31,15 @@ func (o testObservation) Distance(c clusters.Coordinates) float64 {
 }
 
 func TestDispatcherInvalid(t *testing.T) {
-	dispatcher, err := NewDispatcher(client.NewKMeansClient(), client.NewGeocoderClient())
-	assert.NoError(t, err)
-	routes, err := dispatcher.AssignRoutes([]string{}, []string{"Alice", "Bob"})
+	_, err := NewDispatcher(client.NewKMeansClient(), client.NewGeocoderClient(), model.Location{})
 	assert.Error(t, err)
-	assert.Nil(t, routes)
+	assert.Equal(t, err.Error(), "hub address and coords are required")
+	dispatcher, err := NewDispatcher(client.NewKMeansClient(), client.NewGeocoderClient(), model.Location{Address: "123 Main St, Cleveland, OH", Lat: 41.503322, Lon: -81.698311})
+	assert.NoError(t, err)
+	_, err = dispatcher.AssignRoutes([]string{}, []string{"Alice", "Bob"})
+	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "no addresses provided")
-	routes, err = dispatcher.AssignRoutes([]string{
+	routes, err := dispatcher.AssignRoutes([]string{
 		"123 Main St, Cleveland, OH",
 	}, []string{})
 	assert.Error(t, err)
@@ -70,9 +72,9 @@ func TestDispatcherValid(t *testing.T) {
 		}},
 	}
 	mockGeo.On("GetCoords", mock.Anything).Return(model.Points{Lat: 40.988612, Lon: -80.698871}, nil)
-	mockKM.On("Partition", mock.Anything, mock.Anything).Return(mockClusters, nil)
+	mockKM.On("Partition", mock.Anything, mock.Anything, mock.Anything).Return(mockClusters, nil)
 
-	dispatcher, err := NewDispatcher(mockKM, mockGeo)
+	dispatcher, err := NewDispatcher(mockKM, mockGeo, model.Location{Address: "123 Main St, Cleveland, OH", Lat: 41.503322, Lon: -81.698311})
 	assert.NoError(t, err)
 	routes, err := dispatcher.AssignRoutes(addresses, drivers)
 	assert.NoError(t, err)
@@ -96,9 +98,9 @@ func TestDispatcherError(t *testing.T) {
 	// Setup geocoder to succeed
 	mockGeo.On("GetCoords", mock.Anything).Return(model.Points{Lat: 40.988612, Lon: -80.698871}, nil)
 	// Setup kmeans to fail
-	mockKM.On("Partition", mock.Anything, mock.Anything).Return(clusters.Clusters{}, errors.New("mock error"))
+	mockKM.On("Partition", mock.Anything, mock.Anything, mock.Anything).Return(clusters.Clusters{}, errors.New("mock error"))
 
-	dispatcher, err := NewDispatcher(mockKM, mockGeo)
+	dispatcher, err := NewDispatcher(mockKM, mockGeo, model.Location{Address: "123 Main St, Cleveland, OH", Lat: 41.503322, Lon: -81.698311})
 	assert.NoError(t, err)
 	routes, err := dispatcher.AssignRoutes(addresses, drivers)
 	assert.Error(t, err)

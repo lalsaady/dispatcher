@@ -10,8 +10,8 @@ type MockKMeans struct {
 	mock.Mock
 }
 
-func (m *MockKMeans) Partition(orders []model.Location, k int) (clusters.Clusters, error) {
-	args := m.Called(orders, k)
+func (m *MockKMeans) Partition(orders []model.Location, k int, hub model.Location) (clusters.Clusters, error) {
+	args := m.Called(orders, k, hub)
 	return args.Get(0).(clusters.Clusters), args.Error(1)
 }
 
